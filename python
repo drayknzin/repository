@@ -1,0 +1,63 @@
+import requests
+from bs4 import BeautifulSoup
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def obter_preco(url, seletor_css):
+    """Obtém o preço do produto a partir do seletor CSS informado."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        resposta = requests.get(url, headers=headers, timeout=10)
+        resposta.raise_for_status()
+
+        soup = BeautifulSoup(resposta.text, "html.parser")
+        elemento_preco = soup.select_one(seletor_css)
+
+        if not elemento_preco:
+            raise ValueError("Seletor CSS não encontrou o preço.")
+
+        preco_texto = elemento_preco.get_text(strip=True)
+        preco_num = float(preco_texto.replace("R$", "").replace(".", "").replace(",", "."))
+        return preco_num
+    except Exception as e:
+        print(f"Erro ao obter preço: {e}")
+        return None
+
+def enviar_email(destinatario, assunto, mensagem):
+    """Envia um e-mail de alerta."""
+    try:
+        remetente = "seuemail@gmail.com"
+        senha = "sua_senha_de_app"  # Use senha de app do Gmail
+
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(mensagem, "plain"))
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as servidor:
+            servidor.login(remetente, senha)
+            servidor.send_message(msg)
+
+        print("E-mail enviado com sucesso!")
+    except Exception as e:
+        print(f"Erro ao enviar e-mail: {e}")
+
+if __name__ == "__main__":
+    url_produto = "https://www.exemplo.com/produto"
+    seletor_css_preco = ".classe-preco"  # Ajuste conforme o site
+    preco_alvo = 150.00
+
+    preco_atual = obter_preco(url_produto, seletor_css_preco)
+
+    if preco_atual is not None:
+        print(f"Preço atual: R$ {preco_atual:.2f}")
+        if preco_atual <= preco_alvo:
+            enviar_email(
+                "destinatario@email.com",
+                "Alerta de Preço",
+                f"O produto está por R$ {preco_atual:.2f}! Link: {url_produto}"
+            )
+        else:
+            print("O preço ainda está acima do valor desejado.")
